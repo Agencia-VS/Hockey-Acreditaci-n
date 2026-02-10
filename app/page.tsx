@@ -2,7 +2,6 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import BotonFlotante from "@/components/BotonesFlotantes/BotonFlotante";
 import IconoFlotanteAdmin from "@/components/BotonesFlotantes/IconoFlotanteAdmin";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter } from "next/navigation";

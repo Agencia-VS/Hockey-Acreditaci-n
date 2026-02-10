@@ -5,7 +5,6 @@ import AreaSelector, { TipoArea } from "@/components/AreaSelector";
 import AccreditationForm from "@/components/AccreditationForm";
 import Image from "next/image";
 import Link from "next/link";
-import BotonFlotante from "@/components/BotonesFlotantes/BotonFlotante";
 import IconoFlotanteAdmin from "@/components/BotonesFlotantes/IconoFlotanteAdmin";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter } from "next/navigation";
