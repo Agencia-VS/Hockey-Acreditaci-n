@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --brand-blue-dark: #1f0f6c;
+  --brand-blue: #1e0b97;
+  --brand-orange-light: #ff9e1a;
+  --brand-orange: #ff712a;
+  --brand-orange-dark: #fd4727;
+  --brand-red: #cc0000;
+  --font-title: "MTM Palma 67", "Segoe UI", sans-serif;
+  --font-body: "MTM Palma 67", "Segoe UI", sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-mono: "Courier New", monospace;
+}
+
+/* body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-title);
+} */
+
+/* Animaciones para landing page */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.animate-fade-in-delay-1 {
+  animation: fadeIn 0.8s ease-out 0.2s forwards;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fadeIn 0.8s ease-out 0.4s forwards;
+}
+
+.animate-fade-in-delay-3 {
+  animation: fadeIn 0.8s ease-out 0.6s forwards;
+}
+
+.animate-fade-in-delay-4 {
+  animation: fadeIn 0.8s ease-out 0.8s forwards;
+}
+
+.animate-fade-in-delay-5 {
+  animation: fadeIn 0.8s ease-out 1s forwards;
+}
