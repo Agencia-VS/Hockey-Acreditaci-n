@@ -14,8 +14,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 👇 Para desarrollo: usar SIEMPRE onboarding@resend.dev
-    const from = "Acreditaciones VS <onboarding@resend.dev>";
+    const from = "Mundial de Hockey 2026 <no-reply@acreditaciones.accredia.cl>";
 
     const { data, error } = await resend.emails.send({
       from,
