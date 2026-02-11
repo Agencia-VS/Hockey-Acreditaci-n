@@ -8,14 +8,16 @@ import Link from "next/link";
 import IconoFlotanteAdmin from "@/components/BotonesFlotantes/IconoFlotanteAdmin";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter } from "next/navigation";
+import Modal from "@/components/Modal";
 
 export default function AcreditacionPage() {
   const [area, setArea] = useState<TipoArea | null>(null);
   const [enviado, setEnviado] = useState<null | { nombre: string; apellido: string }>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [importMessage, setImportMessage] = useState<
-    { type: "success" | "error"; text: string } | null
+  const [aceptaTyCMasivo, setAceptaTyCMasivo] = useState(false);
+  const [modal, setModal] = useState<
+    { type: "success" | "error"; title: string; message: string } | null
   >(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -34,8 +36,18 @@ export default function AcreditacionPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!aceptaTyCMasivo) {
+      setModal({
+        type: "error",
+        title: "Acepta los términos",
+        message: "Debes aceptar los términos y condiciones antes de enviar el archivo.",
+      });
+      e.target.value = "";
+      return;
+    }
+
     setImporting(true);
-    setImportMessage(null);
+    setModal(null);
 
     try {
       const formData = new FormData();
@@ -49,25 +61,28 @@ export default function AcreditacionPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        setImportMessage({
+        setModal({
           type: "error",
-          text: result?.error || "Error al importar el archivo.",
+          title: "Error en la carga",
+          message: result?.error || "Error al importar el archivo.",
         });
       } else {
         const invalidos = result?.invalidos ?? 0;
         const detalleInvalidos = invalidos
           ? ` ${invalidos} filas con error.`
           : "";
-        setImportMessage({
+        setModal({
           type: "success",
-          text: `${result?.message || "Importacion completada."}${detalleInvalidos}`,
+          title: "Carga exitosa",
+          message: `${result?.message || "Importación completada."}${detalleInvalidos}`,
         });
       }
     } catch (error) {
       console.error("Error al importar masivo:", error);
-      setImportMessage({
+      setModal({
         type: "error",
-        text: "Error al importar el archivo.",
+        title: "Error en la carga",
+        message: "Error al importar el archivo.",
       });
     } finally {
       setImporting(false);
@@ -77,6 +92,13 @@ export default function AcreditacionPage() {
 
   return (
     <main className="min-h-screen w-full bg-gradient-to-br from-[#1F0F6C] via-[#1E0B97] to-[#1F0F6C] relative">
+      <Modal
+        open={!!modal}
+        type={modal?.type}
+        title={modal?.title || ""}
+        message={modal?.message || ""}
+        onClose={() => setModal(null)}
+      />
       {/* Overlay de loading */}
       {isNavigating && (
         <div className="fixed inset-0 bg-[#1F0F6C]/50 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -193,7 +215,7 @@ export default function AcreditacionPage() {
                   </button>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={importing}
+                    disabled={importing || !aceptaTyCMasivo}
                       className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#1F0F6C] via-[#1E0B97] to-[#1F0F6C] hover:shadow-lg text-white font-semibold px-4 py-2.5 transition-all hover:scale-[1.02] active:scale-[0.98] text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -203,23 +225,33 @@ export default function AcreditacionPage() {
                   </button>
                 </div>
               </div>
+              <div className="flex items-start gap-2">
+                <input
+                  id="acepta-tyc-masivo"
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-[#1E0B97] focus:ring-[#1E0B97]"
+                  checked={aceptaTyCMasivo}
+                  onChange={(e) => setAceptaTyCMasivo(e.target.checked)}
+                />
+                <label htmlFor="acepta-tyc-masivo" className="text-sm text-gray-700">
+                  Acepto los{" "}
+                  <a
+                    href="/docs/TerminosFEOCH.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#1E0B97] hover:text-[#1F0F6C] underline font-medium"
+                  >
+                    términos y condiciones
+                  </a>
+                  {" "}.
+                </label>
+              </div>
                 <div className="rounded-xl bg-[#FF9E1A]/10 px-4 py-3 text-xs text-gray-700">
                   Campos requeridos: nombre, apellido, correo y area. Areas validas:
                   Produccion, Voluntarios, Auspiciadores, Proveedores, Fan Fest, Prensa.
                 </div>
               </div>
 
-              {importMessage && (
-                <div
-                  className={`rounded-xl border px-4 py-3 text-sm font-medium ${
-                    importMessage.type === "success"
-                      ? "bg-green-50 border-green-200 text-green-700"
-                      : "bg-red-50 border-red-200 text-red-700"
-                  }`}
-                >
-                  {importMessage.text}
-                </div>
-              )}
             </div>
           </div>
 
