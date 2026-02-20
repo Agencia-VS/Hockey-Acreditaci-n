@@ -55,7 +55,7 @@ function AcreditacionPageContent() {
           acceptTerms: "I accept the",
           termsAndConditions: "terms and conditions",
           requiredFields:
-            "Required fields: first name, last name, email, and area. Valid areas: Production, Volunteers, Sponsors, Suppliers, Fan Fest, Press.",
+            "Required fields: first name, last name, ID/Document, email, and area. Valid areas: Production, Volunteers, Sponsors, Suppliers, Fan Fest, Press.",
           bulkFileHint: "Accepted formats: .csv, .xlsx, .xls · Maximum file size: 5MB.",
           requestSent: "Request sent!",
           thanks: "Thank you",
@@ -85,7 +85,7 @@ function AcreditacionPageContent() {
           acceptTerms: "Acepto los",
           termsAndConditions: "términos y condiciones",
           requiredFields:
-            "Campos requeridos: nombre, apellido, correo y area. Areas validas: Produccion, Voluntarios, Auspiciadores, Proveedores, Fan Fest, Prensa.",
+            "Campos requeridos: nombre, apellido, RUT/documento, correo y area. Areas validas: Produccion, Voluntarios, Auspiciadores, Proveedores, Fan Fest, Prensa.",
           bulkFileHint: "Formatos aceptados: .csv, .xlsx, .xls · Tamaño máximo: 5MB.",
           requestSent: "¡Solicitud enviada!",
           thanks: "Gracias",

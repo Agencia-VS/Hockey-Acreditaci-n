@@ -68,6 +68,7 @@ export default function AccreditationForm({
           companyHint: "If applicable, include your organization or media outlet.",
           termsHint: "You must accept the terms to submit your request.",
           nameRequired: "First name and last name are required.",
+          documentRequired: "ID / Document is required.",
           unknownError: "Unknown error.",
           acceptTermsError: "You must accept the terms and conditions.",
         }
@@ -91,6 +92,7 @@ export default function AccreditationForm({
           companyHint: "Si aplica, indica empresa, institución o medio.",
           termsHint: "Debes aceptar los términos para enviar la solicitud.",
           nameRequired: "Nombre y apellido son obligatorios.",
+          documentRequired: "RUT / Documento es obligatorio.",
           unknownError: "Error desconocido.",
           acceptTermsError: "Debes aceptar los términos y condiciones.",
         };
@@ -116,34 +118,42 @@ export default function AccreditationForm({
       return;
     }
 
+    const rutValue = datos.rut.trim();
+    if (!rutValue) {
+      setError(copy.documentRequired);
+      return;
+    }
+
+    if (!aceptaTyC) {
+      setError(copy.acceptTermsError);
+      return;
+    }
+
     setCargando(true);
     try {
-  const rutValue = datos.rut.trim();
-  const { error: sbError } = await supabase.from("acreditaciones").insert({
-    area,
-    nombre: datos.nombre.trim(),
-    apellido: datos.apellido.trim(),
-    rut: rutValue || null,
-    correo: datos.correo.trim().toLowerCase(),
-    empresa: datos.empresa.trim(),
-  });
+      const { error: sbError } = await supabase.from("acreditaciones").insert({
+        area,
+        nombre: datos.nombre.trim(),
+        apellido: datos.apellido.trim(),
+        rut: rutValue,
+        correo: datos.correo.trim().toLowerCase(),
+        empresa: datos.empresa.trim(),
+      });
 
-  if (sbError) {
-    console.error("Supabase insert error:", sbError); // <— mira la consola
-    setError(sbError.message);                         // <— muestra el mensaje real
-    return;
-  }
+      if (sbError) {
+        console.error("Supabase insert error:", sbError);
+        setError(sbError.message);
+        return;
+      }
 
-  onSuccess(datos);
-} catch (err: unknown) {
-  const msg = err instanceof Error ? err.message : copy.unknownError;
-  console.error("Catch error:", err);
-  setError(msg);
-}
-  if (!aceptaTyC) {
-  setError(copy.acceptTermsError);
-  return;
-}
+      onSuccess(datos);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : copy.unknownError;
+      console.error("Catch error:", err);
+      setError(msg);
+    } finally {
+      setCargando(false);
+    }
 
   }
 
@@ -191,6 +201,7 @@ export default function AccreditationForm({
               placeholder={copy.documentPlaceholder}
               value={datos.rut}
               onChange={(e) => setDatos({ ...datos, rut: e.target.value })}
+              required
             />
           </div>
           <div>

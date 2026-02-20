@@ -578,15 +578,37 @@ export default function AdminDashboard() {
   const logout = async () => {
     setLoggingOut(true);
 
-    const { error } = await supabase.auth.signOut({ scope: "local" });
+    const clearStoredAuth = () => {
+      if (typeof window === "undefined") return;
 
+      const storages = [window.localStorage, window.sessionStorage];
+      for (const storage of storages) {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < storage.length; i += 1) {
+          const key = storage.key(i);
+          if (!key) continue;
+
+          if (
+            key.startsWith("sb-") ||
+            key.includes("supabase") ||
+            key.includes("auth-token")
+          ) {
+            keysToRemove.push(key);
+          }
+        }
+
+        keysToRemove.forEach((key) => storage.removeItem(key));
+      }
+    };
+
+    const { error } = await supabase.auth.signOut({ scope: "global" });
     if (error) {
-      showError("Error al cerrar sesión", error.message);
-      setLoggingOut(false);
-      return;
+      console.error("Error al cerrar sesión global:", error);
+      await supabase.auth.signOut({ scope: "local" });
     }
 
-    window.location.href = "/admin";
+    clearStoredAuth();
+    window.location.assign("/admin");
   };
 
 
