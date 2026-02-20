@@ -181,13 +181,14 @@ async function insertAccreditations(records: AccreditacionRecord[]) {
   for (let i = 0; i < records.length; i += chunkSize) {
     const chunk = records.slice(i, i + chunkSize).map((record) => ({
       ...record,
+      rut: record.rut.trim() || null,
       status: "pendiente",
       zona: null,
     }));
 
     const { error } = await supabase.from("acreditaciones").insert(chunk);
     if (error) {
-      return { error: error.message };
+      return { error: error.message, code: error.code };
     }
     inserted += chunk.length;
   }
@@ -241,9 +242,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const { error, inserted } = await insertAccreditations(valid);
+    const { error, inserted, code } = await insertAccreditations(valid);
 
     if (error) {
+      if (code === "23505" || error.includes("duplicate key value")) {
+        return NextResponse.json(
+          {
+            error:
+              "Hay registros con documento/RUT duplicado. Si el documento está vacío, se guarda como null; revisa que no se repitan valores reales.",
+          },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json(
         { error: `Error al guardar en la base de datos: ${error}` },
         { status: 500 }

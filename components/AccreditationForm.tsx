@@ -118,11 +118,12 @@ export default function AccreditationForm({
 
     setCargando(true);
     try {
+  const rutValue = datos.rut.trim();
   const { error: sbError } = await supabase.from("acreditaciones").insert({
     area,
     nombre: datos.nombre.trim(),
     apellido: datos.apellido.trim(),
-    rut: datos.rut.trim(),
+    rut: rutValue || null,
     correo: datos.correo.trim().toLowerCase(),
     empresa: datos.empresa.trim(),
   });
