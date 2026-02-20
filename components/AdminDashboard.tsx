@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Image from "next/image";
+import Modal from "@/components/Modal";
+import ConfirmModal from "@/components/ConfirmModal";
 
 /** ===== Tipos ===== */
 type Zona = `Zona ${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}` | null;
@@ -58,6 +60,20 @@ export default function AdminDashboard() {
   const [status, setStatus] = useState<string>("*");
   const [jornada, setJornada] = useState<number>(1);
   const [asistencia, setAsistencia] = useState<Record<number, boolean>>({});
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [feedbackModal, setFeedbackModal] = useState<
+    { type: "success" | "error"; title: string; message: string } | null
+  >(null);
+  const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
+  const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+
+  const showError = (title: string, message: string) => {
+    setFeedbackModal({ type: "error", title, message });
+  };
+
+  const showSuccess = (title: string, message: string) => {
+    setFeedbackModal({ type: "success", title, message });
+  };
 
   const loadAsistencias = useCallback(
     async (currentRows: Row[], jornadaActual: number) => {
@@ -67,20 +83,36 @@ export default function AdminDashboard() {
       }
 
       const ids = currentRows.map((r) => r.id);
-      const { data, error } = await supabase
-        .from("asistencias")
-        .select("acreditacion_id, asistio")
-        .eq("jornada", jornadaActual)
-        .in("acreditacion_id", ids);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (error) {
-        console.error(error);
+      if (!session?.access_token) {
+        showError("Sesión expirada", "Debes iniciar sesión nuevamente para cargar asistencias.");
+        setAsistencia({});
+        return;
+      }
+
+      const response = await fetch(
+        `/api/asistencias?jornada=${jornadaActual}&ids=${ids.join(",")}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error("Error cargando asistencias:", result);
+        showError("Error al cargar asistencias", result?.error || "No se pudieron cargar asistencias.");
         setAsistencia({});
         return;
       }
 
       const map: Record<number, boolean> = {};
-      (data ?? []).forEach((row: { acreditacion_id: number; asistio: boolean }) => {
+      (result?.data ?? []).forEach((row: { acreditacion_id: number; asistio: boolean }) => {
         map[row.acreditacion_id] = row.asistio;
       });
       setAsistencia(map);
@@ -118,6 +150,11 @@ export default function AdminDashboard() {
     loadAsistencias(rows, jornada);
   }, [jornada, rows, loadAsistencias]);
 
+  useEffect(() => {
+    const rowIds = new Set(rows.map((r) => r.id));
+    setSelectedIds((prev) => prev.filter((id) => rowIds.has(id)));
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     if (!term) return rows;
@@ -133,33 +170,80 @@ export default function AdminDashboard() {
       .from("acreditaciones")
       .update({ status: nuevo })
       .eq("id", id);
-    if (error) return alert(error.message);
+    if (error) {
+      showError("Error al actualizar estado", error.message);
+      return;
+    }
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: nuevo } : r))
     );
   };
+
+  const toggleRowSelection = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const filteredIds = useMemo(() => filtered.map((r) => r.id), [filtered]);
+  const allFilteredSelected =
+    filteredIds.length > 0 && filteredIds.every((id) => selectedIds.includes(id));
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
+      return;
+    }
+
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+  };
+
+  const selectedRows = useMemo(
+    () => rows.filter((row) => selectedIds.includes(row.id)),
+    [rows, selectedIds]
+  );
+
+  const limpiarSeleccion = () => setSelectedIds([]);
 
   const setZona = async (id: number, zona: Zona) => {
     const { error } = await supabase
       .from("acreditaciones")
       .update({ zona })
       .eq("id", id);
-    if (error) return alert(error.message);
+    if (error) {
+      showError("Error al actualizar zona", error.message);
+      return;
+    }
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, zona } : r)));
   };
 
   const setAsistenciaDia = async (id: number, value: boolean) => {
-    const { error } = await supabase.from("asistencias").upsert(
-      {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      showError("Sesión expirada", "Debes iniciar sesión nuevamente para guardar asistencia.");
+      return;
+    }
+
+    const response = await fetch("/api/asistencias", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
         acreditacion_id: id,
         jornada,
         asistio: value,
-      },
-      { onConflict: "acreditacion_id,jornada" }
-    );
+      }),
+    });
 
-    if (error) {
-      alert(`Error al guardar asistencia: ${error.message}`);
+    const result = await response.json();
+
+    if (!response.ok) {
+      showError("Error al guardar asistencia", result?.error || "No se pudo guardar asistencia.");
       return;
     }
 
@@ -168,7 +252,7 @@ export default function AdminDashboard() {
 
   const aprobarConZona = async (r: Row) => {
     if (!r.zona) {
-      alert("Debes seleccionar una zona antes de aprobar.");
+      showError("Zona requerida", "Debes seleccionar una zona antes de aprobar.");
       return;
     }
 
@@ -179,7 +263,7 @@ export default function AdminDashboard() {
       .eq("id", r.id);
 
     if (error) {
-      alert(error.message);
+      showError("Error al aprobar", error.message);
       return;
     }
 
@@ -190,7 +274,20 @@ export default function AdminDashboard() {
       )
     );
 
-    // 2) Envía el correo automático
+    showSuccess("Acreditación aprobada", `Se aprobó a ${r.nombre} ${r.apellido}.`);
+  };
+
+  const enviarCorreoAprobacion = async (r: Row, silent = false): Promise<boolean> => {
+    if (!r.zona || r.status !== "aprobado") {
+      if (!silent) {
+        showError(
+          "No se puede enviar correo",
+          "La acreditación debe estar aprobada y tener zona asignada para enviar correo."
+        );
+      }
+      return false;
+    }
+
     try {
       const response = await fetch("/api/send-approval", {
         method: "POST",
@@ -208,42 +305,191 @@ export default function AdminDashboard() {
 
       if (!response.ok) {
         console.error("Error al enviar correo:", result);
-        alert(
-          `⚠️ Acreditación aprobada, pero el correo NO se envió.\n\nError: ${result.error || "Desconocido"}\n\nVerifica la configuración de RESEND_API_KEY en el archivo .env`
-        );
+        if (!silent) {
+          showError(
+            "Error al enviar correo",
+            `No se pudo enviar el correo.\n\nError: ${result.error || "Desconocido"}\n\nVerifica la configuración de RESEND_API_KEY en .env`
+          );
+        }
+        return false;
       } else {
         console.log("✅ Correo enviado exitosamente a:", r.correo);
-        alert(
-          `✅ Acreditación aprobada correctamente.\n\nSe ha enviado un correo de confirmación a: ${r.correo}`
-        );
+        if (!silent) {
+          showSuccess(
+            "Correo enviado",
+            `Se ha enviado un correo de confirmación a: ${r.correo}`
+          );
+        }
+        return true;
       }
     } catch (e) {
       console.error("Error enviando correo de aprobación:", e);
-      alert(
-        `⚠️ Acreditación aprobada, pero hubo un problema al enviar el correo.\n\nRevisa la consola del navegador (F12) para más detalles.`
-      );
+      if (!silent) {
+        showError(
+          "Error al enviar correo",
+          "Hubo un problema al enviar el correo.\n\nRevisa la consola del navegador (F12) para más detalles."
+        );
+      }
+      return false;
     }
   };
 
-  const eliminarRegistro = async (r: Row) => {
-    const confirmacion = window.confirm(
-      `¿Estás seguro de eliminar la acreditación de ${r.nombre} ${r.apellido}?\n\nEsta acción no se puede deshacer.`
-    );
+  const cambiarEstadoMasivo = async (nuevo: Row["status"]) => {
+    if (!selectedIds.length) {
+      showError("Sin selección", "Selecciona al menos un registro.");
+      return;
+    }
 
-    if (!confirmacion) return;
+    const { error } = await supabase
+      .from("acreditaciones")
+      .update({ status: nuevo })
+      .in("id", selectedIds);
+
+    if (error) {
+      showError("Error en acción masiva", error.message);
+      return;
+    }
+
+    setRows((prev) =>
+      prev.map((r) => (selectedIds.includes(r.id) ? { ...r, status: nuevo } : r))
+    );
+    const total = selectedIds.length;
+    limpiarSeleccion();
+    showSuccess("Acción masiva completada", `Se actualizaron ${total} registros.`);
+  };
+
+  const aprobarMasivoConZona = async () => {
+    if (!selectedRows.length) {
+      showError("Sin selección", "Selecciona al menos un registro.");
+      return;
+    }
+
+    const conZona = selectedRows.filter((row) => row.zona);
+    const sinZona = selectedRows.length - conZona.length;
+
+    if (!conZona.length) {
+      showError("Zona requerida", "Ninguno de los registros seleccionados tiene zona asignada.");
+      return;
+    }
+
+    const ids = conZona.map((row) => row.id);
+    const { error } = await supabase
+      .from("acreditaciones")
+      .update({ status: "aprobado" })
+      .in("id", ids);
+
+    if (error) {
+      showError("Error en aprobación masiva", error.message);
+      return;
+    }
+
+    setRows((prev) =>
+      prev.map((row) => (ids.includes(row.id) ? { ...row, status: "aprobado" } : row))
+    );
+    limpiarSeleccion();
+    showSuccess(
+      "Aprobación masiva completada",
+      `Aprobados: ${ids.length}${sinZona ? `\nSin zona (omitidos): ${sinZona}` : ""}`
+    );
+  };
+
+  const enviarCorreoMasivo = async () => {
+    if (!selectedRows.length) {
+      showError("Sin selección", "Selecciona al menos un registro.");
+      return;
+    }
+
+    const elegibles = selectedRows.filter((row) => row.status === "aprobado" && row.zona);
+    const omitidos = selectedRows.length - elegibles.length;
+
+    if (!elegibles.length) {
+      showError(
+        "Sin registros elegibles",
+        "Solo se puede enviar correo a acreditaciones aprobadas con zona asignada."
+      );
+      return;
+    }
+
+    const response = await fetch("/api/send-approval", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: elegibles.map((row) => ({
+          nombre: row.nombre,
+          apellido: row.apellido,
+          correo: row.correo,
+          zona: row.zona,
+          area: row.area,
+        })),
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      showError(
+        "Error en envío masivo",
+        `No se pudieron enviar los correos en batch.\n\nError: ${result?.error || "Desconocido"}`
+      );
+      return;
+    }
+
+    limpiarSeleccion();
+    showSuccess(
+      "Envío masivo de correos",
+      `Enviados: ${result?.enviados ?? elegibles.length}${omitidos ? `\nOmitidos: ${omitidos}` : ""}`
+    );
+  };
+
+  const eliminarRegistro = async (r: Row) => {
+    setConfirmDelete(r);
+  };
+
+  const eliminarMasivo = async () => {
+    if (!selectedIds.length) {
+      showError("Sin selección", "Selecciona al menos un registro.");
+      return;
+    }
+    setConfirmBulkDeleteOpen(true);
+  };
+
+  const confirmarEliminarMasivo = async () => {
+    const ids = [...selectedIds];
+    setConfirmBulkDeleteOpen(false);
 
     const { error } = await supabase
       .from("acreditaciones")
       .delete()
-      .eq("id", r.id);
+      .in("id", ids);
 
     if (error) {
-      alert(`Error al eliminar: ${error.message}`);
+      showError("Error al eliminar masivo", error.message);
+      return;
+    }
+
+    setRows((prev) => prev.filter((row) => !ids.includes(row.id)));
+    limpiarSeleccion();
+    showSuccess("Eliminación masiva completada", `Se eliminaron ${ids.length} registros.`);
+  };
+
+  const confirmarEliminarRegistro = async () => {
+    if (!confirmDelete) return;
+    const target = confirmDelete;
+    setConfirmDelete(null);
+
+    const { error } = await supabase
+      .from("acreditaciones")
+      .delete()
+      .eq("id", target.id);
+
+    if (error) {
+      showError("Error al eliminar", error.message);
       return;
     }
 
     // Elimina del estado local
-    setRows((prev) => prev.filter((x) => x.id !== r.id));
+    setRows((prev) => prev.filter((x) => x.id !== target.id));
+    showSuccess("Registro eliminado", "La acreditación se eliminó correctamente.");
   };
 
   const exportCSV = () => {
@@ -318,6 +564,38 @@ export default function AdminDashboard() {
 
   return (
     <main className="min-h-screen w-full bg-gradient-to-br from-[#1F0F6C] via-[#1E0B97] to-[#1F0F6C] relative overflow-hidden">
+      <Modal
+        open={!!feedbackModal}
+        type={feedbackModal?.type}
+        title={feedbackModal?.title || ""}
+        message={feedbackModal?.message || ""}
+        onClose={() => setFeedbackModal(null)}
+      />
+      <ConfirmModal
+        open={!!confirmDelete}
+        title="Eliminar acreditación"
+        message={
+          confirmDelete
+            ? `¿Estás seguro de eliminar la acreditación de ${confirmDelete.nombre} ${confirmDelete.apellido}?\n\nEsta acción no se puede deshacer.`
+            : ""
+        }
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        danger
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={confirmarEliminarRegistro}
+      />
+      <ConfirmModal
+        open={confirmBulkDeleteOpen}
+        title="Eliminar acreditaciones"
+        message={`¿Seguro que deseas eliminar ${selectedIds.length} registros seleccionados?\n\nEsta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        danger
+        onCancel={() => setConfirmBulkDeleteOpen(false)}
+        onConfirm={confirmarEliminarMasivo}
+      />
+
       {/* Decoración de fondo */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div className="absolute top-20 left-10 w-96 h-96 bg-[#FF9E1A] rounded-full blur-3xl"></div>
@@ -437,6 +715,52 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          <div className="mb-4 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-4 border border-[#FF9E1A]/30">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <p className="text-sm font-medium text-gray-700">
+                Seleccionados: <span className="font-semibold text-[#1E0B97]">{selectedIds.length}</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={aprobarMasivoConZona}
+                  className="inline-flex items-center gap-2 rounded-lg bg-green-500 hover:bg-green-600 text-white px-3 py-2 text-xs font-semibold transition-all"
+                >
+                  Aprobar masivo
+                </button>
+                <button
+                  onClick={() => cambiarEstadoMasivo("rechazado")}
+                  className="inline-flex items-center gap-2 rounded-lg bg-red-500 hover:bg-red-600 text-white px-3 py-2 text-xs font-semibold transition-all"
+                >
+                  Rechazar masivo
+                </button>
+                <button
+                  onClick={() => cambiarEstadoMasivo("pendiente")}
+                  className="inline-flex items-center gap-2 rounded-lg bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 text-xs font-semibold transition-all"
+                >
+                  Pendiente masivo
+                </button>
+                <button
+                  onClick={enviarCorreoMasivo}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 text-xs font-semibold transition-all"
+                >
+                  Enviar correos
+                </button>
+                <button
+                  onClick={eliminarMasivo}
+                  className="inline-flex items-center gap-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 text-xs font-semibold transition-all"
+                >
+                  Eliminar masivo
+                </button>
+                <button
+                  onClick={limpiarSeleccion}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 px-3 py-2 text-xs font-semibold transition-all"
+                >
+                  Limpiar selección
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Tabla */}
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-[#FF9E1A]/30">
             {/* Indicador de scroll en móvil */}
@@ -452,6 +776,14 @@ export default function AdminDashboard() {
               <table className="min-w-full text-sm">
                 <thead className="bg-gradient-to-r from-[#1F0F6C] via-[#1E0B97] to-[#1F0F6C] text-white">
                   <tr>
+                    <th className="text-left p-2 sm:p-4 font-semibold border-r border-white/20 text-xs sm:text-sm">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        onChange={toggleSelectAllFiltered}
+                        aria-label="Seleccionar todo"
+                      />
+                    </th>
                     <th className="text-left p-2 sm:p-4 font-semibold border-r border-white/20 text-xs sm:text-sm">Fecha</th>
                     <th className="text-left p-2 sm:p-4 font-semibold border-r border-white/20 text-xs sm:text-sm">Área</th>
                     <th className="text-left p-2 sm:p-4 font-semibold border-r border-white/20 text-xs sm:text-sm">Nombre</th>
@@ -468,7 +800,7 @@ export default function AdminDashboard() {
                 <tbody className="bg-white">
                   {loading ? (
                     <tr>
-                      <td className="p-8 text-center" colSpan={10}>
+                      <td className="p-8 text-center" colSpan={11}>
                         <LoadingSpinner
                           size="md"
                           tone="brand"
@@ -479,7 +811,7 @@ export default function AdminDashboard() {
                     </tr>
                   ) : filtered.length === 0 ? (
                     <tr>
-                      <td className="p-8 text-center" colSpan={10}>
+                      <td className="p-8 text-center" colSpan={11}>
                         <div className="flex flex-col items-center gap-2">
                           <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
@@ -500,6 +832,14 @@ export default function AdminDashboard() {
 
                       return (
                         <tr key={r.id} className={`border-t border-gray-200 transition-colors ${rowColor}`}>
+                          <td className="p-2 sm:p-4 whitespace-nowrap border-r border-gray-200">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(r.id)}
+                              onChange={() => toggleRowSelection(r.id)}
+                              aria-label={`Seleccionar ${r.nombre} ${r.apellido}`}
+                            />
+                          </td>
                           <td className="p-2 sm:p-4 whitespace-nowrap text-gray-600 border-r border-gray-200">
                             <div className="text-xs">
                               {new Date(r.created_at).toLocaleDateString()}
@@ -588,6 +928,18 @@ export default function AdminDashboard() {
                                 </svg>
                                 <span className="absolute left-1/2 -translate-x-1/2 -top-8 bg-gray-900 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                                   Aprobar
+                                </span>
+                              </button>
+                              <button
+                                onClick={() => enviarCorreoAprobacion(r)}
+                                className="group relative inline-flex items-center justify-center rounded-lg bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-2.5 py-1.5 text-xs font-medium transition-all hover:scale-105 active:scale-95"
+                                title="Enviar correo"
+                              >
+                                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.945a2 2 0 002.22 0L21 8m-18 8h18a2 2 0 002-2V8a2 2 0 00-2-2H3a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                </svg>
+                                <span className="absolute left-1/2 -translate-x-1/2 -top-8 bg-gray-900 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                  Enviar correo
                                 </span>
                               </button>
                               <button

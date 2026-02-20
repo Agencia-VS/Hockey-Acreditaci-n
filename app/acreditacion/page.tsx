@@ -1,16 +1,19 @@
 // app/acreditacion/page.tsx
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AreaSelector, { TipoArea } from "@/components/AreaSelector";
 import AccreditationForm from "@/components/AccreditationForm";
 import Image from "next/image";
 import Link from "next/link";
 import IconoFlotanteAdmin from "@/components/BotonesFlotantes/IconoFlotanteAdmin";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Modal from "@/components/Modal";
+import PhotographerBibDisclaimer from "@/components/PhotographerBibDisclaimer";
 
 export default function AcreditacionPage() {
+  const [lang, setLang] = useState<"es" | "en">("es");
+  const [showDisclaimerOverlay, setShowDisclaimerOverlay] = useState(true);
   const [area, setArea] = useState<TipoArea | null>(null);
   const [enviado, setEnviado] = useState<null | { nombre: string; apellido: string }>(null);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -21,11 +24,82 @@ export default function AcreditacionPage() {
   >(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const queryLang = searchParams.get("lang");
+    if (queryLang === "en" || queryLang === "es") {
+      setLang(queryLang);
+    }
+  }, [searchParams]);
+
+  const copy =
+    lang === "en"
+      ? {
+          modalAcceptTitle: "Accept terms",
+          modalAcceptMessage: "You must accept the terms and conditions before uploading the file.",
+          modalUploadErrorTitle: "Upload error",
+          modalUploadErrorMessage: "Error importing file.",
+          modalUploadSuccessTitle: "Upload successful",
+          modalUploadSuccessMessage: "Import completed.",
+          modalUploadInvalidRows: (count: number) => ` ${count} rows with errors.`,
+          loading: "Loading...",
+          back: "Back",
+          step1: "Select area",
+          step2: "Complete details",
+          bulkTitle: "Bulk accreditation",
+          bulkSubtitle: "Download the template and upload your Excel file with multiple requests.",
+          downloadTemplate: "Download template",
+          importing: "Importing...",
+          importBulk: "Bulk import",
+          acceptTerms: "I accept the",
+          termsAndConditions: "terms and conditions",
+          requiredFields:
+            "Required fields: first name, last name, email, and area. Valid areas: Production, Volunteers, Sponsors, Suppliers, Fan Fest, Press.",
+          bulkFileHint: "Accepted formats: .csv, .xlsx, .xls · Maximum file size: 5MB.",
+          requestSent: "Request sent!",
+          thanks: "Thank you",
+          requestReceived: "We have received your accreditation request.",
+          sendAnother: "Send another request",
+          footerSystem: "Official accreditation system • Fast and secure registration",
+          footerRights: "© 2026 Somos VS. All rights reserved.",
+          close: "Close",
+        }
+      : {
+          modalAcceptTitle: "Acepta los términos",
+          modalAcceptMessage: "Debes aceptar los términos y condiciones antes de enviar el archivo.",
+          modalUploadErrorTitle: "Error en la carga",
+          modalUploadErrorMessage: "Error al importar el archivo.",
+          modalUploadSuccessTitle: "Carga exitosa",
+          modalUploadSuccessMessage: "Importación completada.",
+          modalUploadInvalidRows: (count: number) => ` ${count} filas con error.`,
+          loading: "Cargando...",
+          back: "Volver",
+          step1: "Selecciona área",
+          step2: "Completa datos",
+          bulkTitle: "Acreditacion masiva",
+          bulkSubtitle: "Descarga el template y sube tu Excel con varias solicitudes.",
+          downloadTemplate: "Descargar template",
+          importing: "Importando...",
+          importBulk: "Importar masivo",
+          acceptTerms: "Acepto los",
+          termsAndConditions: "términos y condiciones",
+          requiredFields:
+            "Campos requeridos: nombre, apellido, correo y area. Areas validas: Produccion, Voluntarios, Auspiciadores, Proveedores, Fan Fest, Prensa.",
+          bulkFileHint: "Formatos aceptados: .csv, .xlsx, .xls · Tamaño máximo: 5MB.",
+          requestSent: "¡Solicitud enviada!",
+          thanks: "Gracias",
+          requestReceived: "Hemos recibido tu solicitud de acreditación.",
+          sendAnother: "Enviar otra solicitud",
+          footerSystem: "Sistema de acreditación oficial • Registro rápido y seguro",
+          footerRights: "© 2026 Somos VS. Todos los derechos reservados.",
+          close: "Cerrar",
+        };
 
   const handleBack = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     setIsNavigating(true);
-    router.push("/");
+    router.push(`/?lang=${lang}`);
   };
 
   const descargarTemplate = () => {
@@ -39,8 +113,8 @@ export default function AcreditacionPage() {
     if (!aceptaTyCMasivo) {
       setModal({
         type: "error",
-        title: "Acepta los términos",
-        message: "Debes aceptar los términos y condiciones antes de enviar el archivo.",
+        title: copy.modalAcceptTitle,
+        message: copy.modalAcceptMessage,
       });
       e.target.value = "";
       return;
@@ -60,29 +134,44 @@ export default function AcreditacionPage() {
 
       const result = await response.json();
 
+      const invalidSampleText = Array.isArray(result?.invalidSample)
+        ? result.invalidSample
+            .slice(0, 5)
+            .map((item: { row?: number; reason?: string }) => {
+              const rowLabel = lang === "en" ? "Row" : "Fila";
+              const rowText = item?.row ? `${rowLabel} ${item.row}` : rowLabel;
+              return `${rowText}: ${item?.reason || "Error de validación"}`;
+            })
+            .join("\n")
+        : "";
+
       if (!response.ok) {
         setModal({
           type: "error",
-          title: "Error en la carga",
-          message: result?.error || "Error al importar el archivo.",
+          title: copy.modalUploadErrorTitle,
+          message: invalidSampleText
+            ? `${result?.error || copy.modalUploadErrorMessage}\n\n${invalidSampleText}`
+            : result?.error || copy.modalUploadErrorMessage,
         });
       } else {
         const invalidos = result?.invalidos ?? 0;
         const detalleInvalidos = invalidos
-          ? ` ${invalidos} filas con error.`
+          ? copy.modalUploadInvalidRows(invalidos)
           : "";
         setModal({
           type: "success",
-          title: "Carga exitosa",
-          message: `${result?.message || "Importación completada."}${detalleInvalidos}`,
+          title: copy.modalUploadSuccessTitle,
+          message: invalidSampleText
+            ? `${result?.message || copy.modalUploadSuccessMessage}${detalleInvalidos}\n\n${invalidSampleText}`
+            : `${result?.message || copy.modalUploadSuccessMessage}${detalleInvalidos}`,
         });
       }
     } catch (error) {
       console.error("Error al importar masivo:", error);
       setModal({
         type: "error",
-        title: "Error en la carga",
-        message: "Error al importar el archivo.",
+        title: copy.modalUploadErrorTitle,
+        message: copy.modalUploadErrorMessage,
       });
     } finally {
       setImporting(false);
@@ -92,11 +181,19 @@ export default function AcreditacionPage() {
 
   return (
     <main className="min-h-screen w-full bg-gradient-to-br from-[#1F0F6C] via-[#1E0B97] to-[#1F0F6C] relative">
+      {showDisclaimerOverlay && (
+        <PhotographerBibDisclaimer
+          lang={lang}
+          overlay
+          onAcknowledge={() => setShowDisclaimerOverlay(false)}
+        />
+      )}
       <Modal
         open={!!modal}
         type={modal?.type}
         title={modal?.title || ""}
         message={modal?.message || ""}
+        closeLabel={copy.close}
         onClose={() => setModal(null)}
       />
       {/* Overlay de loading */}
@@ -106,7 +203,7 @@ export default function AcreditacionPage() {
             size="lg"
             tone="light"
             stacked
-            label="Cargando..."
+            label={copy.loading}
             labelClassName="text-white font-semibold"
           />
         </div>
@@ -123,16 +220,41 @@ export default function AcreditacionPage() {
       <IconoFlotanteAdmin />
 
       <div className="relative z-10 w-full flex flex-col items-center px-4 py-8 sm:py-10">
+        <div className="fixed top-6 right-6 z-50 inline-flex rounded-full border border-white/30 bg-white/20 p-1 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => setLang("es")}
+            title="Español"
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+              lang === "es" ? "bg-white text-[#1E0B97]" : "text-white hover:bg-white/20"
+            }`}
+            aria-label="Cambiar a español"
+          >
+            ES
+          </button>
+          <button
+            type="button"
+            onClick={() => setLang("en")}
+            title="English"
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+              lang === "en" ? "bg-white text-[#1E0B97]" : "text-white hover:bg-white/20"
+            }`}
+            aria-label="Switch to English"
+          >
+            EN
+          </button>
+        </div>
+
         {/* Botón volver - posicionado arriba a la izquierda */}
         <Link
-          href="/"
+          href={`/?lang=${lang}`}
           onClick={handleBack}
           className="fixed top-6 left-6 z-50 inline-flex items-center gap-2 bg-white/20 backdrop-blur-md text-white hover:bg-white/30 font-medium transition-all px-4 py-2 rounded-full border border-white/30 hover:scale-105"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          <span className="hidden sm:inline">Volver</span>
+          <span className="hidden sm:inline">{copy.back}</span>
         </Link>
 
         <div className="w-full max-w-3xl">
@@ -159,7 +281,7 @@ export default function AcreditacionPage() {
                 : "bg-white/20 text-white/70 border border-white/30 backdrop-blur-sm"
             }`}>
               <span className="font-semibold">1</span>
-              <span>Selecciona área</span>
+              <span>{copy.step1}</span>
             </div>
             <svg className="w-5 h-5 text-white/60 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -170,7 +292,7 @@ export default function AcreditacionPage() {
                 : "bg-white/20 text-white/70 border border-white/30 backdrop-blur-sm"
             }`}>
               <span className="font-semibold">2</span>
-              <span>Completa datos</span>
+              <span>{copy.step2}</span>
             </div>
           </div>
 
@@ -189,10 +311,10 @@ export default function AcreditacionPage() {
                         className="text-lg font-semibold text-gray-900"
                         style={{ fontFamily: "MTM Palma 67" }}
                       >
-                        Acreditacion masiva
+                        {copy.bulkTitle}
                       </h2>
                       <p className="text-sm text-gray-600">
-                        Descarga el template y sube tu Excel con varias solicitudes.
+                        {copy.bulkSubtitle}
                       </p>
                     </div>
                   </div>
@@ -211,7 +333,7 @@ export default function AcreditacionPage() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    Descargar template
+                    {copy.downloadTemplate}
                   </button>
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -221,7 +343,7 @@ export default function AcreditacionPage() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
-                    {importing ? "Importando..." : "Importar masivo"}
+                    {importing ? copy.importing : copy.importBulk}
                   </button>
                 </div>
               </div>
@@ -234,32 +356,33 @@ export default function AcreditacionPage() {
                   onChange={(e) => setAceptaTyCMasivo(e.target.checked)}
                 />
                 <label htmlFor="acepta-tyc-masivo" className="text-sm text-gray-700">
-                  Acepto los{" "}
+                  {copy.acceptTerms}{" "}
                   <a
                     href="/docs/TerminosFEOCH.pdf"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[#1E0B97] hover:text-[#1F0F6C] underline font-medium"
                   >
-                    términos y condiciones
+                    {copy.termsAndConditions}
                   </a>
                   {" "}.
                 </label>
               </div>
                 <div className="rounded-xl bg-[#FF9E1A]/10 px-4 py-3 text-xs text-gray-700">
-                  Campos requeridos: nombre, apellido, correo y area. Areas validas:
-                  Produccion, Voluntarios, Auspiciadores, Proveedores, Fan Fest, Prensa.
+                  {copy.requiredFields}
                 </div>
+                <p className="text-xs text-gray-500">{copy.bulkFileHint}</p>
               </div>
 
             </div>
           </div>
 
-          {!area && <AreaSelector onSelect={(a) => setArea(a)} />}
+          {!area && <AreaSelector onSelect={(a) => setArea(a)} lang={lang} />}
 
           {area && !enviado && (
             <AccreditationForm
               area={area}
+              lang={lang}
               onCancel={() => setArea(null)}
               onSuccess={(datos) => setEnviado({ nombre: datos.nombre, apellido: datos.apellido })}
             />
@@ -273,17 +396,17 @@ export default function AcreditacionPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h2 className="text-3xl font-bold text-gray-900 mb-3">¡Solicitud enviada!</h2>
+                <h2 className="text-3xl font-bold text-gray-900 mb-3">{copy.requestSent}</h2>
                 <p className="text-gray-700 text-lg mb-6">
-                  Gracias <span className="font-semibold text-[#1E0B97]">{enviado.nombre} {enviado.apellido}</span>.
+                  {copy.thanks} <span className="font-semibold text-[#1E0B97]">{enviado.nombre} {enviado.apellido}</span>.
                   <br />
-                  Hemos recibido tu solicitud de acreditación.
+                  {copy.requestReceived}
                 </p>
                 <button 
                   className="px-6 py-3 bg-gradient-to-r from-[#FF9E1A] via-[#FF712A] to-[#FD4727] text-white font-semibold rounded-xl hover:from-[#FF712A] hover:via-[#FD4727] hover:to-[#CC0000] transition-all duration-300 hover:scale-105 shadow-lg" 
                   onClick={() => { setEnviado(null); setArea(null); }}
                 >
-                  Enviar otra solicitud
+                  {copy.sendAnother}
                 </button>
               </div>
             </div>
@@ -293,10 +416,10 @@ export default function AcreditacionPage() {
         {/* Footer */}
         <footer className="py-6 text-center mt-8">
             <p className="text-sm text-white/60">
-            Sistema de acreditación oficial • Registro rápido y seguro
+            {copy.footerSystem}
           </p> <br />
           <p className="text-white/40 text-xs">
-            © 2026 Somos VS. Todos los derechos reservados.
+            {copy.footerRights}
           </p>
         </footer>
       </div>

@@ -31,7 +31,7 @@ export default function IconoFlotanteAdmin() {
       <Link
         href="/admin"
         onClick={handleClick}
-        className="fixed top-6 right-6 z-50 group"
+        className="fixed bottom-6 left-6 z-50 group"
         title="Acceso Administrador"
       >
         <div className="bg-white/20 backdrop-blur-md hover:bg-white/30 transition-all p-3 rounded-full border border-white/30 hover:scale-110 flex items-center justify-center group-hover:gap-2">

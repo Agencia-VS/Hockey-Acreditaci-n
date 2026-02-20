@@ -9,10 +9,18 @@ type ModalProps = {
   title: string;
   message: string;
   type?: ModalType;
+  closeLabel?: string;
   onClose: () => void;
 };
 
-export default function Modal({ open, title, message, type = "success", onClose }: ModalProps) {
+export default function Modal({
+  open,
+  title,
+  message,
+  type = "success",
+  closeLabel = "Cerrar",
+  onClose,
+}: ModalProps) {
   const titleId = useId();
   const messageId = useId();
 
@@ -52,7 +60,7 @@ export default function Modal({ open, title, message, type = "success", onClose 
           </div>
         </div>
         <div className="px-5 py-4">
-          <p id={messageId} className="text-sm text-gray-700 leading-relaxed">
+          <p id={messageId} className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
             {message}
           </p>
         </div>
@@ -62,7 +70,7 @@ export default function Modal({ open, title, message, type = "success", onClose 
             onClick={onClose}
             className="w-full rounded-xl bg-gradient-to-r from-[#1F0F6C] via-[#1E0B97] to-[#1F0F6C] text-white font-semibold px-4 py-2.5 hover:shadow-lg transition-all hover:scale-[1.01]"
           >
-            Cerrar
+            {closeLabel}
           </button>
         </div>
       </div>

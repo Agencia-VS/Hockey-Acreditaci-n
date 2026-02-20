@@ -4,3 +4,5 @@ RESEND_API_KEY=Tu_clave_resend
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_llave_public_anon
 
 NEXT_PUBLIC_SUPABASE_URL= tu_llave_public_supabase
+
+SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key

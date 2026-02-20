@@ -5,6 +5,9 @@ import * as XLSX from "xlsx";
 
 export const runtime = "nodejs";
 
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+
 const AREAS = [
   "Producción",
   "Voluntarios",
@@ -108,7 +111,7 @@ function validateRecords(records: AccreditacionRecord[]) {
       return;
     }
 
-    if (!correo.includes("@")) {
+    if (!EMAIL_REGEX.test(correo)) {
       invalid.push({
         row: rowNumber,
         reason: "El correo no tiene formato valido.",
@@ -171,6 +174,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: "El archivo supera el máximo permitido de 5MB." },
+        { status: 400 }
+      );
+    }
+
     const fileName = (file as Blob & { name?: string }).name || "";
     const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -191,7 +201,8 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error: "No hay registros validos. Revisa el template.",
-          invalidos: invalid.slice(0, 10),
+          invalidos: invalid.length,
+          invalidSample: invalid.slice(0, 10),
         },
         { status: 400 }
       );
