@@ -67,6 +67,7 @@ export default function AdminDashboard() {
   >(null);
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const showError = (title: string, message: string) => {
     setFeedbackModal({ type: "error", title, message });
@@ -575,8 +576,17 @@ export default function AdminDashboard() {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    // No necesitamos location.reload() porque onAuthStateChange actualiza automáticamente
+    setLoggingOut(true);
+
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+
+    if (error) {
+      showError("Error al cerrar sesión", error.message);
+      setLoggingOut(false);
+      return;
+    }
+
+    window.location.href = "/admin";
   };
 
 
@@ -659,12 +669,13 @@ export default function AdminDashboard() {
                   </button>
                   <button
                     onClick={logout}
+                    disabled={loggingOut}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-gray-50 border-2 border-gray-300 text-gray-700 font-semibold px-4 py-2.5 transition-all hover:scale-[1.02] active:scale-[0.98] text-sm"
                   >
                     <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
-                    Cerrar sesión
+                    {loggingOut ? "Cerrando..." : "Cerrar sesión"}
                   </button>
                 </div>
               </div>

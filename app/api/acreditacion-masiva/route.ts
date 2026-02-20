@@ -43,7 +43,11 @@ const FIELD_ALIASES: Record<keyof AccreditacionRecord, string[]> = {
     "pasaporte",
     "id",
     "id/document",
+    "id document",
     "document",
+    "document id",
+    "document number",
+    "id number",
     "passport",
   ],
   correo: [
@@ -79,15 +83,26 @@ const normalizeAreaValue = (value: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
+const normalizeHeaderKey = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+
 function normalizeRecord(record: Record<string, unknown>): AccreditacionRecord {
   const normalized: Record<string, string> = {};
   for (const [key, value] of Object.entries(record)) {
-    const lowerKey = key.trim().toLowerCase().replace(/[_-]+/g, " ");
+    const lowerKey = normalizeHeaderKey(key);
     normalized[lowerKey] = value == null ? "" : String(value).trim();
   }
 
   const pick = (aliases: string[]) =>
-    aliases.map((alias) => normalized[alias]).find((value) => value && value.length) || "";
+    aliases
+      .map((alias) => normalized[normalizeHeaderKey(alias)])
+      .find((value) => value && value.length) || "";
 
   return {
     nombre: pick(FIELD_ALIASES.nombre),
@@ -128,6 +143,7 @@ function validateRecords(records: AccreditacionRecord[]) {
     const rowNumber = index + 2; // Considera el encabezado en la fila 1
     const nombre = record.nombre.trim();
     const apellido = record.apellido.trim();
+    const rut = record.rut.trim();
     const correo = record.correo.trim().toLowerCase();
     const areaRaw = record.area.trim();
 
@@ -136,10 +152,10 @@ function validateRecords(records: AccreditacionRecord[]) {
       AREA_ALIASES[normalizedAreaInput] ||
       AREAS.find((area) => normalizeAreaValue(area) === normalizedAreaInput);
 
-    if (!nombre || !apellido || !correo || !areaMatch) {
+    if (!nombre || !apellido || !rut || !correo || !areaMatch) {
       invalid.push({
         row: rowNumber,
-        reason: "Faltan campos requeridos (nombre, apellido, correo o area).",
+        reason: "Faltan campos requeridos (nombre, apellido, rut/documento, correo o area).",
       });
       return;
     }
@@ -155,7 +171,7 @@ function validateRecords(records: AccreditacionRecord[]) {
     valid.push({
       nombre,
       apellido,
-      rut: record.rut.trim(),
+      rut,
       correo,
       empresa: record.empresa.trim(),
       area: areaMatch,
@@ -181,7 +197,7 @@ async function insertAccreditations(records: AccreditacionRecord[]) {
   for (let i = 0; i < records.length; i += chunkSize) {
     const chunk = records.slice(i, i + chunkSize).map((record) => ({
       ...record,
-      rut: record.rut.trim() || null,
+      rut: record.rut.trim(),
       status: "pendiente",
       zona: null,
     }));
@@ -249,7 +265,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              "Hay registros con documento/RUT duplicado. Si el documento está vacío, se guarda como null; revisa que no se repitan valores reales.",
+              "Hay registros con documento/RUT duplicado. Revisa que no se repitan valores reales.",
           },
           { status: 409 }
         );
