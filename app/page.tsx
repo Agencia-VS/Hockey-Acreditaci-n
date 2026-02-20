@@ -5,9 +5,9 @@ import Image from "next/image";
 import IconoFlotanteAdmin from "@/components/BotonesFlotantes/IconoFlotanteAdmin";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
-export default function LandingPage() {
+function LandingPageContent() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [lang, setLang] = useState<"es" | "en">("es");
   const router = useRouter();
@@ -118,6 +118,14 @@ export default function LandingPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <Suspense fallback={null}>
+      <LandingPageContent />
+    </Suspense>
   );
 }
 

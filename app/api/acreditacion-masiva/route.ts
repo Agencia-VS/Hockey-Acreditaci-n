@@ -345,7 +345,7 @@ export async function GET(req: Request) {
     ],
   } as const;
 
-  const rows = rowsByLanguage[language];
+  const rows = rowsByLanguage[language].map((row) => ({ ...row }));
   const worksheet = XLSX.utils.json_to_sheet(rows, {
     header: [...headersByLanguage[language]],
   });

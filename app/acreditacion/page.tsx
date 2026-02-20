@@ -1,6 +1,6 @@
 // app/acreditacion/page.tsx
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import AreaSelector, { TipoArea } from "@/components/AreaSelector";
 import AccreditationForm from "@/components/AccreditationForm";
 import Image from "next/image";
@@ -11,7 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Modal from "@/components/Modal";
 import PhotographerBibDisclaimer from "@/components/PhotographerBibDisclaimer";
 
-export default function AcreditacionPage() {
+function AcreditacionPageContent() {
   const [lang, setLang] = useState<"es" | "en">("es");
   const [showDisclaimerOverlay, setShowDisclaimerOverlay] = useState(true);
   const [area, setArea] = useState<TipoArea | null>(null);
@@ -424,5 +424,13 @@ export default function AcreditacionPage() {
         </footer>
       </div>
     </main>
+  );
+}
+
+export default function AcreditacionPage() {
+  return (
+    <Suspense fallback={null}>
+      <AcreditacionPageContent />
+    </Suspense>
   );
 }
