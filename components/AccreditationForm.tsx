@@ -64,7 +64,6 @@ export default function AccreditationForm({
           back: "Back",
           firstNameHint: "Use your legal first name as shown on your ID.",
           lastNameHint: "Use your legal last name as shown on your ID.",
-          documentHint: "Optional, but recommended for faster verification.",
           emailHint: "Use an active email to receive notifications.",
           companyHint: "If applicable, include your organization or media outlet.",
           termsHint: "You must accept the terms to submit your request.",
@@ -88,7 +87,6 @@ export default function AccreditationForm({
           back: "Volver",
           firstNameHint: "Usa tu nombre legal tal como aparece en tu documento.",
           lastNameHint: "Usa tu apellido legal tal como aparece en tu documento.",
-          documentHint: "Opcional, pero recomendado para validación más rápida.",
           emailHint: "Usa un correo activo para recibir notificaciones.",
           companyHint: "Si aplica, indica empresa, institución o medio.",
           termsHint: "Debes aceptar los términos para enviar la solicitud.",
@@ -193,7 +191,6 @@ export default function AccreditationForm({
               value={datos.rut}
               onChange={(e) => setDatos({ ...datos, rut: e.target.value })}
             />
-            <p className="mt-1 text-xs text-gray-500">{copy.documentHint}</p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">{copy.email}</label>

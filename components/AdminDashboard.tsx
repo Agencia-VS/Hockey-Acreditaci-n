@@ -60,6 +60,7 @@ export default function AdminDashboard() {
   const [status, setStatus] = useState<string>("*");
   const [jornada, setJornada] = useState<number>(1);
   const [asistencia, setAsistencia] = useState<Record<number, boolean>>({});
+  const [loadingAsistencia, setLoadingAsistencia] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [feedbackModal, setFeedbackModal] = useState<
     { type: "success" | "error"; title: string; message: string } | null
@@ -77,45 +78,55 @@ export default function AdminDashboard() {
 
   const loadAsistencias = useCallback(
     async (currentRows: Row[], jornadaActual: number) => {
-      if (!currentRows.length) {
-        setAsistencia({});
-        return;
-      }
+      setLoadingAsistencia(true);
 
-      const ids = currentRows.map((r) => r.id);
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
-        showError("Sesión expirada", "Debes iniciar sesión nuevamente para cargar asistencias.");
-        setAsistencia({});
-        return;
-      }
-
-      const response = await fetch(
-        `/api/asistencias?jornada=${jornadaActual}&ids=${ids.join(",")}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
+      try {
+        if (!currentRows.length) {
+          setAsistencia({});
+          return;
         }
-      );
 
-      const result = await response.json();
+        const ids = currentRows.map((r) => r.id);
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (!response.ok) {
-        console.error("Error cargando asistencias:", result);
-        showError("Error al cargar asistencias", result?.error || "No se pudieron cargar asistencias.");
+        if (!session?.access_token) {
+          showError("Sesión expirada", "Debes iniciar sesión nuevamente para cargar asistencias.");
+          setAsistencia({});
+          return;
+        }
+
+        const response = await fetch(
+          `/api/asistencias?jornada=${jornadaActual}&ids=${ids.join(",")}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          console.error("Error cargando asistencias:", result);
+          showError("Error al cargar asistencias", result?.error || "No se pudieron cargar asistencias.");
+          setAsistencia({});
+          return;
+        }
+
+        const map: Record<number, boolean> = {};
+        (result?.data ?? []).forEach((row: { acreditacion_id: number; asistio: boolean }) => {
+          map[row.acreditacion_id] = row.asistio;
+        });
+        setAsistencia(map);
+      } catch (error) {
+        console.error("Error inesperado cargando asistencias:", error);
+        showError("Error al cargar asistencias", "Ocurrió un error inesperado al cargar asistencias.");
         setAsistencia({});
-        return;
+      } finally {
+        setLoadingAsistencia(false);
       }
-
-      const map: Record<number, boolean> = {};
-      (result?.data ?? []).forEach((row: { acreditacion_id: number; asistio: boolean }) => {
-        map[row.acreditacion_id] = row.asistio;
-      });
-      setAsistencia(map);
     },
     []
   );
@@ -166,6 +177,13 @@ export default function AdminDashboard() {
   }, [rows, q]);
 
   const setEstado = async (id: number, nuevo: Row["status"]) => {
+    const targetRow = rows.find((r) => r.id === id);
+
+    if (nuevo === "aprobado" && !targetRow?.zona) {
+      showError("Zona requerida", "No se puede aprobar sin tener una zona asignada.");
+      return;
+    }
+
     const { error } = await supabase
       .from("acreditaciones")
       .update({ status: nuevo })
@@ -906,13 +924,21 @@ export default function AdminDashboard() {
                               onClick={() =>
                                 setAsistenciaDia(r.id, !(asistencia[r.id] ?? false))
                               }
+                              disabled={loadingAsistencia}
                               className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition-all ${
+                                loadingAsistencia
+                                  ? "bg-gray-100 text-gray-500 cursor-wait"
+                                  :
                                 asistencia[r.id]
                                   ? "bg-green-100 text-green-800"
                                   : "bg-gray-100 text-gray-600"
                               }`}
                             >
-                              {asistencia[r.id] ? "Asistio" : "Sin registro"}
+                              {loadingAsistencia
+                                ? "Cargando..."
+                                : asistencia[r.id]
+                                ? "Asistio"
+                                : "Sin registro"}
                             </button>
                           </td>
 

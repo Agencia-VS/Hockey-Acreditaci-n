@@ -103,7 +103,7 @@ export default function AcreditacionPage() {
   };
 
   const descargarTemplate = () => {
-    window.location.href = "/api/acreditacion-masiva";
+    window.location.href = `/api/acreditacion-masiva?lang=${lang}`;
   };
 
   const importarMasivo = async (e: React.ChangeEvent<HTMLInputElement>) => {

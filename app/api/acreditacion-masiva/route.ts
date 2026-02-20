@@ -32,12 +32,44 @@ type InvalidRecord = {
 };
 
 const FIELD_ALIASES: Record<keyof AccreditacionRecord, string[]> = {
-  nombre: ["nombre"],
-  apellido: ["apellido"],
-  rut: ["rut", "r.u.t", "rut/documento", "documento", "dni", "pasaporte"],
-  correo: ["correo", "email", "correo electronico", "correo electrónico"],
-  empresa: ["empresa", "empresa/medio", "medio"],
-  area: ["area", "área"],
+  nombre: ["nombre", "first name", "firstname", "first_name", "name"],
+  apellido: ["apellido", "last name", "lastname", "last_name", "surname"],
+  rut: [
+    "rut",
+    "r.u.t",
+    "rut/documento",
+    "documento",
+    "dni",
+    "pasaporte",
+    "id",
+    "id/document",
+    "document",
+    "passport",
+  ],
+  correo: [
+    "correo",
+    "email",
+    "e-mail",
+    "correo electronico",
+    "correo electrónico",
+    "email address",
+  ],
+  empresa: ["empresa", "empresa/medio", "medio", "company", "organization", "media outlet"],
+  area: ["area", "área", "department"],
+};
+
+const AREA_ALIASES: Record<string, (typeof AREAS)[number]> = {
+  produccion: "Producción",
+  production: "Producción",
+  voluntarios: "Voluntarios",
+  volunteers: "Voluntarios",
+  auspiciadores: "Auspiciadores",
+  sponsors: "Auspiciadores",
+  proveedores: "Proveedores",
+  suppliers: "Proveedores",
+  "fan fest": "Fan Fest",
+  prensa: "Prensa",
+  press: "Prensa",
 };
 
 const normalizeAreaValue = (value: string) =>
@@ -50,7 +82,7 @@ const normalizeAreaValue = (value: string) =>
 function normalizeRecord(record: Record<string, unknown>): AccreditacionRecord {
   const normalized: Record<string, string> = {};
   for (const [key, value] of Object.entries(record)) {
-    const lowerKey = key.trim().toLowerCase();
+    const lowerKey = key.trim().toLowerCase().replace(/[_-]+/g, " ");
     normalized[lowerKey] = value == null ? "" : String(value).trim();
   }
 
@@ -99,9 +131,10 @@ function validateRecords(records: AccreditacionRecord[]) {
     const correo = record.correo.trim().toLowerCase();
     const areaRaw = record.area.trim();
 
-    const areaMatch = AREAS.find(
-      (area) => normalizeAreaValue(area) === normalizeAreaValue(areaRaw)
-    );
+    const normalizedAreaInput = normalizeAreaValue(areaRaw);
+    const areaMatch =
+      AREA_ALIASES[normalizedAreaInput] ||
+      AREAS.find((area) => normalizeAreaValue(area) === normalizedAreaInput);
 
     if (!nombre || !apellido || !correo || !areaMatch) {
       invalid.push({
@@ -233,44 +266,88 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
-  const rows = [
-    {
-      nombre: "Juan",
-      apellido: "Perez",
-      rut: "12345678-K",
-      correo: "juan@example.com",
-      empresa: "Empresa A",
-      area: "Prensa",
-    },
-    {
-      nombre: "Maria",
-      apellido: "Gonzalez",
-      rut: "98765432-9",
-      correo: "maria@example.com",
-      empresa: "Empresa B",
-      area: "Voluntarios",
-    },
-    {
-      nombre: "Carlos",
-      apellido: "Lopez",
-      rut: "11223344-5",
-      correo: "carlos@example.com",
-      empresa: "Empresa C",
-      area: "Produccion",
-    },
-    {
-      nombre: "Ana",
-      apellido: "Martinez",
-      rut: "44332211-3",
-      correo: "ana@example.com",
-      empresa: "Empresa D",
-      area: "Proveedores",
-    },
-  ];
+export async function GET(req: Request) {
+  const languageParam = new URL(req.url).searchParams.get("lang");
+  const language: "es" | "en" = languageParam === "en" ? "en" : "es";
+  const headersByLanguage = {
+    es: ["nombre", "apellido", "rut", "correo", "empresa", "area"],
+    en: ["first_name", "last_name", "id_document", "email", "company", "area"],
+  } as const;
 
+  const rowsByLanguage = {
+    es: [
+      {
+        nombre: "Juan",
+        apellido: "Perez",
+        rut: "12345678-K",
+        correo: "juan@example.com",
+        empresa: "Empresa A",
+        area: "Prensa",
+      },
+      {
+        nombre: "Maria",
+        apellido: "Gonzalez",
+        rut: "98765432-9",
+        correo: "maria@example.com",
+        empresa: "Empresa B",
+        area: "Voluntarios",
+      },
+      {
+        nombre: "Carlos",
+        apellido: "Lopez",
+        rut: "11223344-5",
+        correo: "carlos@example.com",
+        empresa: "Empresa C",
+        area: "Produccion",
+      },
+      {
+        nombre: "Ana",
+        apellido: "Martinez",
+        rut: "44332211-3",
+        correo: "ana@example.com",
+        empresa: "Empresa D",
+        area: "Proveedores",
+      },
+    ],
+    en: [
+      {
+        first_name: "John",
+        last_name: "Smith",
+        id_document: "A1234567",
+        email: "john@example.com",
+        company: "Company A",
+        area: "Press",
+      },
+      {
+        first_name: "Mary",
+        last_name: "Johnson",
+        id_document: "B9876543",
+        email: "mary@example.com",
+        company: "Company B",
+        area: "Volunteers",
+      },
+      {
+        first_name: "Charles",
+        last_name: "Lopez",
+        id_document: "C1122334",
+        email: "charles@example.com",
+        company: "Company C",
+        area: "Production",
+      },
+      {
+        first_name: "Anne",
+        last_name: "Martin",
+        id_document: "D4433221",
+        email: "anne@example.com",
+        company: "Company D",
+        area: "Suppliers",
+      },
+    ],
+  } as const;
+
+  const rows = rowsByLanguage[language];
   const worksheet = XLSX.utils.json_to_sheet(rows, {
-    header: ["nombre", "apellido", "rut", "correo", "empresa", "area"],
+    header: [...headersByLanguage[language]],
   });
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
@@ -281,8 +358,9 @@ export async function GET() {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition":
-        'attachment; filename="template_acreditacion.xlsx"',
+      "Content-Disposition": `attachment; filename="${
+        language === "en" ? "accreditation_template.xlsx" : "template_acreditacion.xlsx"
+      }"`,
     },
   });
 }
