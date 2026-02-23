@@ -3,6 +3,13 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_APP_URL ??
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  "https://acreditaciones.accredia.cl";
+
+const eventLogoUrl = `${siteUrl.replace(/\/$/, "")}/img/LogoHockeyClaro.png`;
+
 type ApprovalPayload = {
   nombre: string;
   apellido: string;
@@ -11,7 +18,37 @@ type ApprovalPayload = {
   area?: string;
 };
 
-const from = "Mundial de Hockey 2026 <no-reply@acreditaciones.accredia.cl>";
+const ZONA_NOMBRE: Record<string, string> = {
+  "1": "Venue",
+  "2": "FOP",
+  "3": "LOC",
+  "4": "VIP",
+  "5": "Broadcast",
+  "6": "Officials",
+  "7": "Media",
+  "8": "Volunteers",
+  "9": "Todas las zonas",
+};
+
+const getZonaNombre = (zona?: string | null) => {
+  if (!zona) return "Por confirmar";
+
+  const cleaned = zona.trim();
+
+  if (/^\d+$/.test(cleaned)) {
+    return ZONA_NOMBRE[cleaned] ?? cleaned;
+  }
+
+  const zoneMatch = cleaned.match(/^zona\s*(\d+)(?:\.(.+))?$/i);
+  if (zoneMatch) {
+    const [, zoneNumber, inlineName] = zoneMatch;
+    return (inlineName?.trim() || ZONA_NOMBRE[zoneNumber] || cleaned).trim();
+  }
+
+  return cleaned;
+};
+
+const from = "Hockey World Qualifiers Santiago 2026 <no-reply@acreditaciones.accredia.cl>";
 
 const buildApprovalHtml = ({ nombre, apellido, zona, area }: ApprovalPayload) => `
   <!DOCTYPE html>
@@ -28,11 +65,19 @@ const buildApprovalHtml = ({ nombre, apellido, zona, area }: ApprovalPayload) =>
           <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; max-width: 100%;">
             <tr>
               <td style="background: linear-gradient(135deg, #1f0f6c 0%, #1e0b97 50%, #1f0f6c 100%); padding: 40px 30px; text-align: center;">
-                <h1 style="color: #ffffff; font-size: 28px; margin: 0 0 10px 0; font-weight: 700;">
-                  <img src="https://res.cloudinary.com/dubnevl0h/image/upload/v1768136932/Dise%C3%B1o_sin_t%C3%ADtulo_1_z8qzbu.png" alt="Logo VS" style="height: 70px; margin-bottom: 10px;" />
-                </h1>
+                <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto;">
+                  <tr>
+                    <td style="padding-right: 14px; vertical-align: middle;">
+                      <img src="https://res.cloudinary.com/dubnevl0h/image/upload/v1768136932/Dise%C3%B1o_sin_t%C3%ADtulo_1_z8qzbu.png" alt="Logo VS" style="height: 56px; display: block;" />
+                    </td>
+                    <td style="width: 1px; background-color: rgba(255, 255, 255, 0.35); font-size: 0; line-height: 0;">&nbsp;</td>
+                    <td style="padding-left: 14px; vertical-align: middle;">
+                      <img src="https://res.cloudinary.com/ddwytwhln/image/upload/v1771325577/LogoHockeyHorizontalClaro_crhvbo.png" alt="Logo Hockey World Cup Qualifiers" style="height: 56px; display: block;" />
+                    </td>
+                  </tr>
+                </table>
                 <p style="color: #ff9e1a; font-size: 16px; margin: 0; font-weight: 600;">
-                  Sistema de Acreditaciones
+                  Acreditaciones Accredia - Hockey World Qualifiers Santiago 2026
                 </p>
               </td>
             </tr>
@@ -71,7 +116,7 @@ const buildApprovalHtml = ({ nombre, apellido, zona, area }: ApprovalPayload) =>
                         Zona Asignada
                       </p>
                       <p style="margin: 0; color: #9a3412; font-size: 18px; font-weight: 700;">
-                        ${zona ?? "Por confirmar"}
+                        ${getZonaNombre(zona)}
                       </p>
                     </td>
                   </tr>
@@ -97,7 +142,7 @@ const buildApprovalHtml = ({ nombre, apellido, zona, area }: ApprovalPayload) =>
             <tr>
               <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
                 <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
-                  <strong>Acreditaciones VS</strong>
+                  <strong>By Accredia</strong>
                 </p>
                 <p style="margin: 0; color: #9ca3af; font-size: 13px; line-height: 1.6;">
                   Este es un correo automático, por favor no responder.<br>

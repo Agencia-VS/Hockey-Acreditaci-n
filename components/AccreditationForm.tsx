@@ -238,7 +238,11 @@ export default function AccreditationForm({
   <label htmlFor="acepta-tyc" className="text-sm text-gray-700">
     {copy.acceptTerms}{" "}
     <a
-      href="/docs/TerminosFEOCH.pdf"  // ← si usas URL externa, reemplázala aquí
+      href={
+        lang === "en"
+          ? "/docs/Terms%20FEOCH%20EN-%20HWCQ%202026.docx.pdf"
+          : "/docs/TerminosFEOCH.pdf"
+      }
       target="_blank"
       rel="noopener noreferrer"
       className="text-[#1E0B97] hover:text-[#1F0F6C] underline font-medium"
