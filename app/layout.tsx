@@ -8,8 +8,8 @@ const mtmPalma = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "VS - Sistema de Acreditación",
-  description: "Sistema de acreditación oficial para el partido Universidad de Chile vs Racing de Avellaneda",
+  title: "Accredia - Sistema de Acreditación",
+  description: "Sistema de acreditación oficial para las qualifiers del mundial de Hockey 2026, Santiago de Chile.",
    icons: {
     icon: "/img/VSLogo.png",
   }
