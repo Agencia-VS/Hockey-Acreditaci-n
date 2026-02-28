@@ -157,6 +157,14 @@ export default function AdminDashboard() {
     load();
   }, [load]);
 
+  // if the status filter changes we clear the text search so the user doesn't
+  // accidentally have a term like "pendiente" still applied and think the
+  // status filter is broken. this mirrors the behaviour we already have when
+  // changing `area` or other high-level filters in many UIs.
+  useEffect(() => {
+    setQ("");
+  }, [status]);
+
   useEffect(() => {
     setAsistencia({});
     loadAsistencias(rows, jornada);
@@ -171,7 +179,9 @@ export default function AdminDashboard() {
     const term = q.trim().toLowerCase();
     if (!term) return rows;
     return rows.filter((r) =>
-      [r.nombre, r.apellido, r.rut, r.correo, r.empresa ?? ""].some((x) =>
+      // also allow searching by status (e.g. typing "pendiente" will match rows
+      // that are currently in that status)
+      [r.nombre, r.apellido, r.rut, r.correo, r.empresa ?? "", r.status].some((x) =>
         x.toLowerCase().includes(term)
       )
     );

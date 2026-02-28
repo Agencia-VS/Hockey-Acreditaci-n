@@ -138,6 +138,7 @@ export default function AccreditationForm({
         rut: rutValue,
         correo: datos.correo.trim().toLowerCase(),
         empresa: datos.empresa.trim(),
+        status: "pendiente", // default inicial
       });
 
       if (sbError) {
