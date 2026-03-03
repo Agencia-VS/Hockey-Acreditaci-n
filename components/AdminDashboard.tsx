@@ -34,6 +34,25 @@ const AREAS = [
 ] as const;
 
 const JORNADAS = Array.from({ length: 8 }, (_, i) => i + 1);
+const JORNADA_STORAGE_KEY = "admin-dashboard:jornada";
+
+const getInitialJornada = () => {
+  if (typeof window === "undefined") return 1;
+
+  try {
+    const raw = window.localStorage.getItem(JORNADA_STORAGE_KEY);
+    if (!raw) return 1;
+
+    const parsed = Number(raw);
+    if (Number.isInteger(parsed) && JORNADAS.includes(parsed)) {
+      return parsed;
+    }
+  } catch {
+    return 1;
+  }
+
+  return 1;
+};
 
 // Mapa: valor guardado -> texto que se muestra en el select
 const ZONA_LABEL: Record<Exclude<Zona, null>, string> = {
@@ -58,7 +77,7 @@ export default function AdminDashboard() {
   const [q, setQ] = useState("");
   const [area, setArea] = useState<string>("*");
   const [status, setStatus] = useState<string>("*");
-  const [jornada, setJornada] = useState<number>(1);
+  const [jornada, setJornada] = useState<number>(getInitialJornada);
   const [asistencia, setAsistencia] = useState<Record<number, boolean>>({});
   const [loadingAsistencia, setLoadingAsistencia] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -68,6 +87,16 @@ export default function AdminDashboard() {
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      window.localStorage.setItem(JORNADA_STORAGE_KEY, String(jornada));
+    } catch {
+      // no-op
+    }
+  }, [jornada]);
 
   const showError = (title: string, message: string) => {
     setFeedbackModal({ type: "error", title, message });
